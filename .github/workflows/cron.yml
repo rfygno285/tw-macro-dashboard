@@ -1,7 +1,7 @@
 name: Daily Data Build
 on:
   schedule:
-    - cron: '5 0 * * *'
+    - cron: '5 0 * * *'   # 每日 08:05 台北時間（GitHub 用 UTC）
   workflow_dispatch:
 
 permissions:
