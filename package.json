@@ -1,0 +1,15 @@
+{
+  "name": "tw-macro-dashboard",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "fetch:taibir": "node scripts/fetch_taibir.js",
+    "fetch:cpi": "node scripts/fetch_cpi.js",
+    "fetch:all": "npm run fetch:taibir && npm run fetch:cpi"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "xlsx": "^0.18.5"
+  }
+}
