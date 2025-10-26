@@ -1,7 +1,8 @@
 name: Daily Data Build
+
 on:
   schedule:
-    - cron: '5 0 * * *'   # 每日 08:05 台北時間（GitHub 用 UTC）
+    - cron: '5 0 * * *'   # 每日 08:05 台北（GitHub 用 UTC）
   workflow_dispatch:
 
 permissions:
@@ -11,18 +12,43 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - run: npm ci || npm i
-      - run: npm run fetch:taibir
-      - run: npm run fetch:cpi
-      - run: npm run fetch:unemp
-      - run: npm run fetch:m2
+      - name: Print env & repo state
+        run: |
+          node -v
+          npm -v
+          pwd
+          ls -la
+          echo "package.json:"
+          cat package.json || true
 
+      - name: Install deps
+        run: npm ci --no-audit --no-fund || npm i
+
+      - name: Ensure data folder
+        run: mkdir -p docs/data
+
+      - name: Run fetchers (non-blocking)
+        run: |
+          set -x
+          npm run fetch:taibir || echo "::warning ::fetch:taibir failed"
+          npm run fetch:cpi    || echo "::warning ::fetch:cpi failed"
+          npm run fetch:unemp  || echo "::warning ::fetch:unemp failed"
+          npm run fetch:m2     || echo "::warning ::fetch:m2 failed"
+
+      - name: Ensure placeholders if missing
+        run: |
+          for f in taibir cpi unemployment m2; do
+            [ -s docs/data/$f.json ] || echo "[]" > docs/data/$f.json
+          done
+          ls -la docs/data
 
       - name: Commit updated JSON
         run: |
