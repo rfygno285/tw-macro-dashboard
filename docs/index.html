@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Taiwan Macro Dashboard (Web)</title>
+<style>
+  body { font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto; margin: 20px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 900px){ .grid { grid-template-columns: 1fr 1fr; } }
+  .card { padding: 12px; border: 1px solid #eee; border-radius: 12px; }
+  .title { font-weight: 700; margin: 0 0 8px; }
+  .note { color:#666; font-size:12px; }
+  #cpi,#taibir { height:360px; }
+</style>
+
+<h2>台灣宏觀監控儀表板（Web 版）</h2>
+<p class="note">資料來源：DGBAS（CPI）、CBC（TAIBIR）。排程每日更新；多數月度指標僅在發布日換期。</p>
+
+<div class="grid">
+  <div class="card">
+    <div class="title">CPI YoY（%）</div>
+    <div id="cpi"></div>
+  </div>
+  <div class="card">
+    <div class="title">TAIBIR 隔夜拆款利率（%）</div>
+    <div id="taibir"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5"></script>
+<script>
+async function fetchJson(path){ const r = await fetch(path); return await r.json(); }
+
+// 折線圖工具
+function drawLine(domId, dates, values, { pct=false, name="" } = {}){
+  const el = document.getElementById(domId);
+  const chart = echarts.init(el);
+  chart.setOption({
+    tooltip:{ trigger:'axis', valueFormatter: v => pct ? (v*100).toFixed(1)+'%' : v.toFixed(2) },
+    xAxis:{ type:'category', data: dates },
+    yAxis:{ type:'value', axisLabel:{ formatter: v => pct ? (v*100).toFixed(0)+'%' : v } },
+    series:[{ type:'line', name, data: values }]
+  });
+}
+
+// CPI：前端計算 YoY
+(async () => {
+  const cpi = await fetchJson('data/cpi.json'); // [{date, cpi_index}]
+  const map = new Map(cpi.map(d => [d.date, d.cpi_index]));
+  const dates = cpi.map(d => d.date).sort();
+  const yoy = dates.map(dt => {
+    const v = map.get(dt);
+    const d = new Date(dt); d.setUTCMonth(d.getUTCMonth() - 12);
+    const prev = map.get(d.toISOString().slice(0,10));
+    return (v && prev) ? (v/prev - 1) : null;
+  });
+  drawLine('cpi', dates, yoy, { pct:true, name:'CPI YoY' });
+})();
+
+// TAIBIR：直接畫日利率
+(async () => {
+  const t = await fetchJson('data/taibir.json'); // [{date, taibir_on}]
+  const dates = t.map(d => d.date);
+  const vals  = t.map(d => Number(d.taibir_on));
+  drawLine('taibir', dates, vals, { pct:false, name:'O/N' });
+})();
+</script>
