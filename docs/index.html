@@ -36,59 +36,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/echarts@5"></script>
 <script>
-async function fetchJson(path){ const r = await fetch(path + '?t=' + Date.now()); return await r.json(); }
-function drawLine(domId, dates, values, { pct=false, name="" } = {}){
-  const el = document.getElementById(domId);
-  const chart = echarts.init(el);
-  chart.setOption({
-    tooltip:{ trigger:'axis', valueFormatter: v => (v==null?'':(pct ? (v*100).toFixed(1)+'%' : Number(v).toFixed(2))) },
-    xAxis:{ type:'category', data: dates },
-    yAxis:{ type:'value', axisLabel:{ formatter: v => pct ? (v*100).toFixed(0)+'%' : v } },
-    series:[{ type:'line', name, data: values, showSymbol:false }]
-  });
+async function fetchJson(path){
+  const url = path + '?t=' + Date.now();
+  const r = await fetch(url);
+  if (!r.ok) {
+    console.error('Fetch failed:', url, r.status, r.statusText);
+    return []; // 回傳空陣列，圖表不會掛
+  }
+  return await r.json();
 }
-
-// CPI：前端算 YoY
-(async () => {
-  const cpi = await fetchJson('data/cpi.json'); // [{date, cpi_index}]
-  const map = new Map(cpi.map(d => [d.date, Number(d.cpi_index)]));
-  const dates = cpi.map(d => d.date).sort();
-  const yoy = dates.map(dt => {
-    const v = map.get(dt);
-    const d = new Date(dt); d.setUTCMonth(d.getUTCMonth()-12);
-    const prev = map.get(d.toISOString().slice(0,10));
-    return (v && prev) ? (v/prev - 1) : null;
-  });
-  drawLine('cpi', dates, yoy, { pct:true, name:'CPI YoY' });
-})();
-
-// TAIBIR：日利率
-(async () => {
-  const t = await fetchJson('data/taibir.json'); // [{date, taibir_on}]
-  const dates = t.map(d => d.date);
-  const vals  = t.map(d => Number(d.taibir_on));
-  drawLine('taibir', dates, vals, { name:'O/N' });
-})();
-
-// 失業率：%（直接畫）
-(async () => {
-  const u = await fetchJson('data/unemployment.json'); // [{date, unemployment_rate}]
-  const dates = u.map(d => d.date);
-  const vals  = u.map(d => Number(d.unemployment_rate));
-  drawLine('unemp', dates, vals, { name:'Unemployment (%)' });
-})();
-
-// M2：前端算 YoY
-(async () => {
-  const m = await fetchJson('data/m2.json'); // [{date, m2}]
-  const map = new Map(m.map(d => [d.date, Number(d.m2)]));
-  const dates = m.map(d => d.date).sort();
-  const yoy = dates.map(dt => {
-    const v = map.get(dt);
-    const d = new Date(dt); d.setUTCMonth(d.getUTCMonth()-12);
-    const prev = map.get(d.toISOString().slice(0,10));
-    return (v && prev) ? (v/prev - 1) : null;
-  });
-  drawLine('m2', dates, yoy, { pct:true, name:'M2 YoY' });
-})();
 </script>
