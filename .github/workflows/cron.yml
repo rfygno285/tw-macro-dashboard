@@ -1,0 +1,31 @@
+name: Daily Data Build
+on:
+  schedule:
+    - cron: '5 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci || npm i
+
+      - run: npm run fetch:taibir
+      - run: npm run fetch:cpi
+
+      - name: Commit updated JSON
+        run: |
+          git config user.name "data-bot"
+          git config user.email "data-bot@users.noreply.github.com"
+          git add docs/data/*.json || true
+          git diff --cached --quiet && echo "No changes" || git commit -m "chore: data refresh"
+          git push
