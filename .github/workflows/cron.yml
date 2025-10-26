@@ -2,7 +2,8 @@ name: Daily Data Build
 
 on:
   schedule:
-    - cron: '5 0 * * *'   # 每日 08:05 台北（GitHub 用 UTC）
+    # GitHub 用 UTC；此為每日 00:05 UTC（台北 08:05）
+    - cron: '5 0 * * *'
   workflow_dispatch:
 
 permissions:
@@ -11,25 +12,25 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Print env & repo state
         run: |
-          node -v
-          npm -v
-          pwd
-          ls -la
-          echo "package.json:"
-          cat package.json || true
+          echo "Node:" && node -v
+          echo "NPM:" && npm -v
+          echo "PWD:" && pwd
+          echo "List root:" && ls -la
+          echo "package.json snapshot:" && (cat package.json || true)
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm ci --no-audit --no-fund || npm i
 
       - name: Ensure data folder
@@ -46,14 +47,17 @@ jobs:
       - name: Ensure placeholders if missing
         run: |
           for f in taibir cpi unemployment m2; do
-            [ -s docs/data/$f.json ] || echo "[]" > docs/data/$f.json
+            [ -s "docs/data/$f.json" ] || echo "[]" > "docs/data/$f.json"
           done
-          ls -la docs/data
+          echo "Data folder listing:" && ls -la docs/data
 
       - name: Commit updated JSON
         run: |
           git config user.name "data-bot"
           git config user.email "data-bot@users.noreply.github.com"
-          git add docs/data/*.json || true
+          git add -A docs/data
+          echo "---- git status ----"
+          git status --porcelain
+          git diff --cached --name-only || true
           git diff --cached --quiet && echo "No changes" || git commit -m "chore: data refresh"
           git push
