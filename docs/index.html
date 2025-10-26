@@ -7,29 +7,30 @@
   .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
   @media (min-width: 1100px){ .grid { grid-template-columns: 1fr 1fr; } }
   .card { padding: 12px; border: 1px solid #eee; border-radius: 12px; }
-  .title { font-weight: 700; margin: 0 0 8px; }
+  .title { font-weight: 700; margin: 0 0 4px; display:flex; justify-content:space-between; align-items:center; }
   .note { color:#666; font-size:12px; }
+  .status { color:#888; font-size:12px; font-weight:400; }
   #cpi,#taibir,#unemp,#m2 { height:360px; }
 </style>
 
 <h2>台灣宏觀監控儀表板（Web 版）</h2>
-<p class="note">資料來源：DGBAS（CPI/失業）、CBC（TAIBIR/M2）。每日排程更新；多數月度指標僅在發布日換期。</p>
+<p class="note">資料來源：DGBAS（CPI/失業）、CBC（TAIBIR/M2）。每日排程更新；月度指標僅在發布日換期。</p>
 
 <div class="grid">
   <div class="card">
-    <div class="title">CPI YoY（%）</div>
+    <div class="title">CPI YoY（%） <span id="s-cpi" class="status"></span></div>
     <div id="cpi"></div>
   </div>
   <div class="card">
-    <div class="title">TAIBIR 隔夜拆款利率（%）</div>
+    <div class="title">TAIBIR 隔夜拆款利率（%） <span id="s-taibir" class="status"></span></div>
     <div id="taibir"></div>
   </div>
   <div class="card">
-    <div class="title">失業率（%）</div>
+    <div class="title">失業率（%） <span id="s-unemp" class="status"></span></div>
     <div id="unemp"></div>
   </div>
   <div class="card">
-    <div class="title">M2 YoY（%）</div>
+    <div class="title">M2 YoY（%） <span id="s-m2" class="status"></span></div>
     <div id="m2"></div>
   </div>
 </div>
@@ -41,8 +42,69 @@ async function fetchJson(path){
   const r = await fetch(url);
   if (!r.ok) {
     console.error('Fetch failed:', url, r.status, r.statusText);
-    return []; // 回傳空陣列，圖表不會掛
+    return [];
   }
   return await r.json();
 }
+function drawLine(domId, dates, values, { pct=false, name="" } = {}){
+  const el = document.getElementById(domId);
+  const chart = echarts.init(el);
+  chart.setOption({
+    tooltip:{ trigger:'axis', valueFormatter: v => (v==null?'':(pct ? (v*100).toFixed(1)+'%' : Number(v).toFixed(2))) },
+    xAxis:{ type:'category', data: dates },
+    yAxis:{ type:'value', axisLabel:{ formatter: v => pct ? (v*100).toFixed(0)+'%' : v } },
+    series:[{ type:'line', name, data: values, showSymbol:false }]
+  });
+}
+// 把 YYYY-MM 當 key，避免各種日期解析差異
+const ymKey = (isoDate) => isoDate.slice(0,7);
+const ymMinus12 = (ym) => {
+  const y = +ym.slice(0,4), m = +ym.slice(5,7);
+  return String(y-1).padStart(4,'0') + '-' + String(m).padStart(2,'0');
+};
+
+// CPI：YoY (以 YYYY-MM 對齊)
+(async () => {
+  const data = await fetchJson('data/cpi.json'); // [{date, cpi_index}]
+  const status = document.getElementById('s-cpi');
+  status.textContent = `已載入 ${data.length} 筆`;
+  const map = new Map(data.map(d => [ymKey(d.date), Number(d.cpi_index)]));
+  const yms = Array.from(map.keys()).sort();
+  const yoy = yms.map(ym => {
+    const v = map.get(ym), prev = map.get(ymMinus12(ym));
+    return (v && prev) ? (v/prev - 1) : null;
+  });
+  drawLine('cpi', yms, yoy, { pct:true, name:'CPI YoY' });
+})();
+
+// TAIBIR：日利率
+(async () => {
+  const data = await fetchJson('data/taibir.json'); // [{date, taibir_on}]
+  document.getElementById('s-taibir').textContent = `已載入 ${data.length} 筆`;
+  const dates = data.map(d => d.date);
+  const vals  = data.map(d => Number(d.taibir_on));
+  drawLine('taibir', dates, vals, { name:'O/N' });
+})();
+
+// 失業率：%（直接畫）
+(async () => {
+  const data = await fetchJson('data/unemployment.json'); // [{date, unemployment_rate}]
+  document.getElementById('s-unemp').textContent = `已載入 ${data.length} 筆`;
+  const dates = data.map(d => d.date);
+  const vals  = data.map(d => Number(d.unemployment_rate));
+  drawLine('unemp', dates, vals, { name:'Unemployment (%)' });
+})();
+
+// M2：YoY (以 YYYY-MM 對齊)
+(async () => {
+  const data = await fetchJson('data/m2.json'); // [{date, m2}]
+  document.getElementById('s-m2').textContent = `已載入 ${data.length} 筆`;
+  const map = new Map(data.map(d => [ymKey(d.date), Number(d.m2)]));
+  const yms = Array.from(map.keys()).sort();
+  const yoy = yms.map(ym => {
+    const v = map.get(ym), prev = map.get(ymMinus12(ym));
+    return (v && prev) ? (v/prev - 1) : null;
+  });
+  drawLine('m2', yms, yoy, { pct:true, name:'M2 YoY' });
+})();
 </script>
