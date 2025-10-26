@@ -3,18 +3,27 @@ import fetch from "node-fetch";
 import fs from "node:fs";
 
 const OUT = "docs/data/taibir.json";
-const URL = "https://www.cbc.gov.tw/public/data/OpenData/WebF2.csv"; // 央行隔拆利率（CSV）
+const URL = "https://www.cbc.gov.tw/public/data/OpenData/WebF2.csv"; // 央行隔拆利率（示意）
 
 try {
-  const csv = await (await fetch(URL)).text();
+  console.log("[TAIBIR] GET", URL);
+  const resp = await fetch(URL);
+  console.log("[TAIBIR] status =", resp.status, resp.statusText);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
+  const txt = await resp.text();
+  if (!txt.trim()) throw new Error("empty response");
+
+  // 處理 BOM
+  const csv = txt.replace(/^\uFEFF/, "");
   const lines = csv.trim().split(/\r?\n/).filter(Boolean);
-  const headers = lines[0].split(",").map(s => s.trim());
+  const headers = lines[0].split(/,|;|\t/).map(s => s.trim());
   const rows = lines.slice(1).map(r => {
-    const c = r.split(",").map(s => s.trim());
+    const c = r.split(/,|;|\t/).map(s => s.trim());
     return Object.fromEntries(headers.map((h, i) => [h, c[i]]));
   });
 
+  // 嘗試不同欄名
   const out = rows.map(d => {
     const dateStr = d.Date || d["日期"] || d["date"];
     const rateStr = d["O/N Call Loan Rate"] ?? d["隔夜拆款利率"] ?? d["ONCallLoanRate"];
@@ -25,11 +34,4 @@ try {
   }).filter(Boolean);
 
   fs.mkdirSync("docs/data", { recursive: true });
-  fs.writeFileSync(OUT, JSON.stringify(out, null, 2));
-  console.log(`✔ taibir.json updated: ${out.length} rows`);
-} catch (err) {
-  console.error("[fetch_taibir] ERROR:", err?.message || err);
-  fs.mkdirSync("docs/data", { recursive: true });
-  fs.writeFileSync(OUT, "[]");
-  process.exitCode = 0; // 不讓整個 workflow 失敗
-}
+  fs.writeFileSync
