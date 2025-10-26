@@ -1,8 +1,5 @@
 {
-  "name": "tw-macro-dashboard",
-  "version": "1.0.0",
   "type": "module",
-  "private": true,
   "scripts": {
     "fetch:taibir": "node scripts/fetch_taibir.js",
     "fetch:cpi": "node scripts/fetch_cpi.js",
