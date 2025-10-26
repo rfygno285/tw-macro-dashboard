@@ -18,9 +18,11 @@ jobs:
           node-version: '20'
 
       - run: npm ci || npm i
-
       - run: npm run fetch:taibir
       - run: npm run fetch:cpi
+      - run: npm run fetch:unemp
+      - run: npm run fetch:m2
+
 
       - name: Commit updated JSON
         run: |
